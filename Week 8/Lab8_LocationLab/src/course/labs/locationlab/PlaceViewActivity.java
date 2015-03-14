@@ -7,6 +7,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -46,12 +47,12 @@ public class PlaceViewActivity extends ListActivity implements LocationListener 
 		mLocationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 		ListView placesListView = getListView();
 
-		// TODO - add a footerView to the ListView
+		// add a footerView to the ListView
 		// You can use footer_view.xml to define the footer
+		LayoutInflater layoutInflater = (LayoutInflater) getApplicationContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+        final View footerView = layoutInflater.inflate(R.layout.footer_view, null);
 
-        View footerView = null;
-
-		// TODO - footerView must respond to user clicks, handling 3 cases:
+		// footerView must respond to user clicks, handling 3 cases:
 
 		// There is no current location - response is up to you. The best
 		// solution is to always disable the footerView until you have a
@@ -73,22 +74,21 @@ public class PlaceViewActivity extends ListActivity implements LocationListener 
 			public void onClick(View arg0) {
 				Log.i(TAG, "Entered footerView.OnClickListener.onClick()");
 
+				if(mLocationManager != null) {
+					mLastLocationReading = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+				}
+				
+                if(mLastLocationReading != null) {
+                	
+                	onLocationChanged(mLastLocationReading);
 
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
-                
+                	if(mAdapter.intersects(mLastLocationReading)) {
+                		Toast.makeText(getApplicationContext(), R.string.duplicate_location_string, Toast.LENGTH_SHORT).show();
+                	} else {
+                		new PlaceDownloaderTask(PlaceViewActivity.this, mMockLocationOn).execute(mLastLocationReading);
+                	}
+                	
+                } 
                 
 			}
 
@@ -106,27 +106,22 @@ public class PlaceViewActivity extends ListActivity implements LocationListener 
 
 		startMockLocationManager();
 
-		// TODO - Check NETWORK_PROVIDER for an existing location reading.
+		// Check NETWORK_PROVIDER for an existing location reading.
 		// Only keep this last reading if it is fresh - less than 5 minutes old
+		if(mLastLocationReading != null && ageInMilliseconds(mLastLocationReading) < FIVE_MINS) {
+			mLastLocationReading = mLocationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+		}
 
-
-        
-        
-        mLastLocationReading = null;
-
-
-		// TODO - register to receive location updates from NETWORK_PROVIDER
-
-
-        
+		// register to receive location updates from NETWORK_PROVIDER
+		mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, mMinTime, mMinDistance, this);
         
 	}
 
 	@Override
 	protected void onPause() {
 
-		// TODO - unregister for location updates
-
+		// unregister for location updates
+		mLocationManager.removeUpdates(this);
         
         
 		shutdownMockLocationManager();
@@ -138,7 +133,7 @@ public class PlaceViewActivity extends ListActivity implements LocationListener 
 		Log.i(TAG, "Entered addNewPlace()");
 
 		// TODO - Attempt to add place to the adapter, considering the following cases
-
+		
 		// A PlaceBadge for this location already exists - issue a Toast message
 		// with the text - "You already have this location badge." Use the PlaceRecord 
 		// class' intersects() method to determine whether a PlaceBadge already exists
@@ -153,23 +148,16 @@ public class PlaceViewActivity extends ListActivity implements LocationListener 
 		// Do not add the PlaceBadge to the adapter
 		
 		// Otherwise - add the PlaceBadge to the adapter
-		
-
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+		Location placeLocation = place.getLocation();
+		if (placeLocation == null) {
+			Toast.makeText(getApplicationContext(), "PlaceBadge could not be acquired", Toast.LENGTH_SHORT).show();
+		} else if(mAdapter.intersects(placeLocation)) {
+			Toast.makeText(getApplicationContext(), R.string.duplicate_location_string, Toast.LENGTH_SHORT).show();
+		} else if (place.getCountryName() == null || place.getCountryName().isEmpty()) {
+			Toast.makeText(getApplicationContext(), R.string.no_country_string, Toast.LENGTH_SHORT).show();
+		} else {
+			mAdapter.add(place);
+		}
         
 	}
 
@@ -177,7 +165,7 @@ public class PlaceViewActivity extends ListActivity implements LocationListener 
 	@Override
 	public void onLocationChanged(Location currentLocation) {
 
-		// TODO - Update location considering the following cases.
+		// Update location considering the following cases.
 		// 1) If there is no last location, set the last location to the current
 		// location.
 		// 2) If the current location is older than the last location, ignore
@@ -185,13 +173,10 @@ public class PlaceViewActivity extends ListActivity implements LocationListener 
 		// 3) If the current location is newer than the last locations, keep the
 		// current location.
 
+        if(null == currentLocation || (mLastLocationReading != null && ageInMilliseconds(currentLocation) < ageInMilliseconds(mLastLocationReading))){
+        	mLastLocationReading = currentLocation;
+        }
         
-        
-        
-        
-        
-        
-			mLastLocationReading = null;
 	}
 
 	@Override
